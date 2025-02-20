@@ -72,6 +72,47 @@
 			  </tr>
 			</table>
 		</div>
+		<p><b>Extra Credit: Additional Optimizations!</b></p>
+		<p>A simple optimization is removing the min and max bounding box calculator from the for loop. This removes multiple min and max operations per loop. We should also pre-calculate the perpendicular vector to the edge vectors.</p>
+
+<p>We can optimize the triangles by changing the way that we sample. Instead of iterating through all the points in the bounding box, we can iterate in a way that takes into account the continuity of the triangle. Essentially, our method uses the fact that points in triangles are connected to each other. Instead of starting our next line at the bounding box, we start it at the same x coordinate where we saw a point inside the triangle. Then, we go from the middle outwards, to the left and to the right until we see the left or right edge of the triangle respectively. We then break the loop. The left and right movement is suboptimal because it doesn’t work efficiently with the cpu caching, but it is quicker than sampling all the points inside the bounding box. </p>
+
+<p>0.062781 seconds for the optimized compared to 0.0722407 seconds for the unoptimized version. This is a 13% uplift in performance. </p>
+
+
+<p>The pseudo code is below.</p>
+<pre>
+	<span class="keyword">int</span> last_valid_x = min_x;
+	
+	<span class="keyword">for</span> (y <span class="keyword">in</span> range(min_y, max_y)) {
+		<span class="comment">//check to the right</span>
+		<span class="indent1">edges_passed = 0;</span>
+		<span class="indent1"><span class="keyword">for</span> (x <span class="keyword">in</span> range(last_valid_x, max_x)) {</span>
+	<span class="indent2"><span class="keyword">If</span> inside triangle:</span>
+				<span class="indent3">Fill pixel(x, y);</span>
+				<span class="indent3">edges_passed = 1;</span>
+			<span class="indent2">} <span class="keyword">Else if</span> edges_passed == 1: {</span>
+				<span class="comment indent3">//this means we passed the end of the triangle, so we set the last valid x to be the previous step</span>
+				<span class="indent3">Last_valid_x = x - 1;</span>
+			<span class="indent2">}</span>
+		<span class="indent1">}</span>
+	
+		<span class="indent1">edges_passed = 0;</span>
+		<span class="comment indent1">//check to the left</span>
+		<span class="indent1"><span class="keyword">for</span> (x <span class="keyword">in</span> range(last_valid_x, min_x, -1)) {</span>
+			<span class="indent2"><span class="keyword">If</span> inside triangle:</span>
+				<span class="indent3">Fill pixel(x, y);</span>
+				<span class="indent3">edges_passed = 1;</span>
+			<span class="indent2">} <span class="keyword">Else if</span> edges_passed == 1: {</span>
+				<span class="comment indent3">//this means we passed the end of the triangle, so we set the last valid x to be the previous step</span>
+				<span class="indent3">Last_valid_x = x + 1;</span>
+			<span class="indent2">}</span>
+		<span class="indent1">}</span>
+	}
+	</pre>
+	<p>LLM used to turn pseudocode into readable HTML. Shows how LLMs are good at solving simple syntax problems, but fails to spatially understand html to correctly indent the code. </p>
+		
+
 		
 		<h2>Task 2: Antialiasing by Supersampling</h2>
 		<p>To make supersampling work, we first needed to create a new sample buffer. We scale the new sample buffer by sqrt(sample_rate) in both the x and y directions. This means that we take a total of sample_rate more samples per pixel.</p>
@@ -99,6 +140,24 @@
 			  </tr>
 			</table>
 		</div>
+		<p><b>Extra credit: Alternative antialiasing techniques</b></p>
+		<p>We implemented jittered sampling as an alternative to supersampling. Here, we can see how jittered is more effective than super sampling at a lower cost. Due to the high frequency noise from many lines intersecting, we can see that even 4x supersampling results in aliasing, with distracting Moiré patterns. However, jittering doesn’t suffer from the same issue, and smooths out the image with reduced Moiré patterns. This is an example of how jittering is able to avoid the distracting aliasing problems of supersampling. 
+		</p>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+					<img src="jittered.png" width="400px"/>
+					<figcaption>Jittered</figcaption>
+				</td>
+				<td style="text-align: center;">
+					<img src="4xsupersampling.png" width="400px"/>
+					<figcaption>4x Supersampling</figcaption>
+				</td>
+			  </tr>
+			</table>
+		</div>
+
 		<h2>Task 3: Transforms</h2>
 		Here's a happy robot created using transformations and SVG!
 		<div style="display: flex; flex-direction: column; align-items: center;">
@@ -111,6 +170,19 @@
 			  </tr>
 			</table>
 		</div>
+		<p>Extra Credit: Adding GUI feature!</p>
+		<p>We can rotate the viewpoint using the keys y and h. We modified the NDC to screen matrix by multiplying our rotation matrix into the NDC to screen matrix, forming a combined rotation and SVG to NDC buffer. When we receive a y or h keypress, we multiply the ndc to screen matrix with a rotation matrix. This allows us to rotate the viewpoint using our rotate transformation vector we created. </p>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+					<img src="rotated.png" width="400px"/>
+					<figcaption>A picture of the rotated viewpoint</figcaption>
+				</td>
+			  </tr>
+			</table>
+		</div>
+
 
 		<h2>Task 4: Barycentric coordinates</h2>
 		<p><b>How do Barycentric coordinates work?</b></p>
