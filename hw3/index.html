@@ -355,7 +355,9 @@
 				</tr>
 			</table>
 		</div>
-		
+		<b>2nd and 3rd bounce of light, and how it contributes to the quality of the rendered image compared to rasterization</b>
+		<p>The 2nd bounce of light has the most significant impact on indirect illumination with the bunny. One area significantly affected is the roof of the box, going from completely dark to illuminated because of indirect lighting from the second bounce. The second bounce also indirectly illuminates the bunny from the walls, resulting in red and blue on the bunny. It also results in softer shadows, contributing to the illumination of the bottom shadow of the bunny. The 3rd bounce of light is less impactful but contributes further to the effects of the second bounce. The 3rd bounce also significantly illuminates the bunny on top. Compared to rasterization and the Blinn-Phong model, the first bounce is similar to specular and direct illumination, the second bounce is similar to ambient lighting, and the third bounce contributes to ambient lighting. However, instead of a simple constant, ray-traced bounces reflect actual light, allowing for soft shadows, light bleed from the walls, and physically accurate ambient lighting. The overall quality of the picture in comparison to rasterization shows the most significantly improved quality in the shadows and dark areas, allowing for accurate indirect lighting in those areas. 		</p>
+		<b>Compare rendered views of accumulated and unaccumulated bounces</b>
 		<p>Comparing the views of the accumulated and individual bounces, we see how, without the accumulation of light, the later bounce values contribute less to the overall brightness of the image. We see the first bounce is very important, contributing the majority of the lighting in the scene, and the second bounce is important, contributing the indirect lighting. The subsequent bounces have a smaller impact on the overall image but help to provide more prominent indirect lighting.</p>
 		<div style="display: flex; flex-direction: column; align-items: center;">
 			<table style="width: 100%; text-align: center; border-collapse: collapse;">
