@@ -32,8 +32,9 @@
 
 		<br>
 
-		Link to webpage: (TODO) <a href="https://cs184.eecs.berkeley.edu/sp25">cs184.eecs.berkeley.edu/sp25</a>
-		Link to GitHub repository: (TODO) <a href="https://cs184.eecs.berkeley.edu/sp25">cs184.eecs.berkeley.edu/sp25</a>
+		Link to Sanika Webpage: <a href="https://cal-cs184-student.github.io/hw-webpages-pookie/hw3/index.html">https://cal-cs184-student.github.io/hw-webpages-pookie/hw3/index.html</a>
+		Link to Dhanin Webpage: <a href="https://cal-cs184-student.github.io/hw-webpages-cs184website/hw3/index.html">https://cal-cs184-student.github.io/hw-webpages-cs184website/hw3/index.html</a>
+		Link to GitHub repository: <a href=" https://github.com/cal-cs184-student/sp25-hw3-dhanika"> https://github.com/cal-cs184-student/sp25-hw3-dhanika</a>
 		
 		<figure>
 			<img src="cornell.png" alt="Cornell Boxes with Bunnies" style="width:70%"/>
@@ -45,7 +46,11 @@
 		-->
 
 		<h2>Overview</h2>
-		Give a high-level overview of what you implemented in this homework. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the homework.
+		<p>In our project, we walk through the steps of ray tracing and explore important optimizations. As a whole, we have gone from simple ray tracing to implementing full global illumination with reasonable rendering times, providing us with many valuable insights. In addition to exploring BVHs, direct lighting sampling, and adaptive sampling, we explored various other methods for optimization including stack implementations, surface area heuristics, and non-axis-aligned bounding boxes. These all were an interesting learning process which provided us with a new perspective into optimization strategies and using data structures which suit our problem. Learning about global illumination was really cool, and seeing how each bounce of light contributed to the entire picture was a really valuable experience.		</p>
+		<p>Statement on ChatGPT: </p>
+		<p>For our naive BVH construction, we used chat gpt to help us debug our code. For example, we learnt of C++ functions such as std::nth_element and std::partition. For the SAH and stack implementations, we prompted chat GPT to give us an implementation. This was buggy but allowed us to get a basic overview of how the formulas from the textbook (pbr book), could be implemented in code. We then modified and debugged this code further to fit the structures defined for this project like BVHNode. We learnt a lot about prefix sums, and I had to go look up what it was online because ChatGPT did not explain it well. Ultimately it was essential towards building up our SAH and stack implementations. 		</p>
+		<p>From the covariance matrix, eigenvalues were determined. Instead of library eigenvalue solvers, code generation tools created a solver using power iteration and deflation, resulting in an eigenvalue matrix. Using code generation, instead of a pre-existing library, avoided dependencies and maintained consistency with our custom Matrix3x3 and Vector3D implementation. We found code generation tools effective for producing functional code for common functions, replacing the need for libraries in some cases. However, because code generation tools are error prone, this can lead to hidden bugs. 	</p>
+		<p>Co-pilot is also enabled and helps us code faster. We rarely used it however, as we didn’t find it very accurate most of the time. Co-pilot helped debugging, as we could prompt it on errors. For example, we learnt that objects declared as “const” could not be overwritten by the same object type if it was not also a “const”	</p>
 
 		<h2>Part 1: Ray Generation and Scene Intersection</h2>
 
@@ -536,6 +541,67 @@
 				</tr>
 			</table>
 		</div>
+
+		<p><b>SURFACE AREA HEURISTIC IMPLEMENTATION</b></p>
+		<p>Note*: this was implemented & written up after the importance sampling task was finished, which is why the images will look different.</p>
+
+		<p>Command used to test: <code>./pathtracer -t 8 -s 64 -l 32 -m 6 -f bunny_64_32.png -r 480 360 ../dae/sky/CBbunny.dae</code></p>
+		
+		<p>8 thread (building BVH tree):<br>
+		Naive dragon.dae: 0.0608 sec<br>
+		SAH dragon.dae: 0.0751 sec<br>
+		Naive CBbunny.dae: 0.0105 sec<br>
+		SAH CBbunny.dae: 0.0152 sec</p>
+		
+		<p>8 thread (rendering):<br>
+		Naive dragon.dae: 964.4961s<br>
+		SAH dragon.dae: 46.8621s<br>
+		Naive CBbunny.dae: 849.0095s<br>
+		SAH CBbunny.dae: 42.3556s</p>
+		
+		<p>In this implementation, we first attempted to use the SAH heuristic for every primitive/possible split point. We soon realized that this did not improve runtime, so we implemented binned SAH.</p>
+		
+		<p>This is a high level overview of the binned SAH implementation:</p>
+		
+		<p>Instead of checking every primitive as a split candidate, we:</p>
+		<ol>
+		  <li>Divide the bounding box into 16 bins</li>
+		  <li>Sort primitives into these bins by their center.</li>
+		  <li>Find the best bin with the lowest SAH cost.</li>
+		  <li>Compute the split point from the best bin.</li>
+		</ol>
+		
+		<p>The bin structure holds the count of primitives in the bin, and the bounding box with all the primatvies in it.</p>
+		
+		<p>We begin by computing the bounding box of the root node and returning leaf nodes like in the naive implementation. We calculate the best axis for division (the longest axis), and hard code a constant number of bins (we set this to 16). These will be the bins we use to finally compute a split point. Then, we compute the min and maximum coordinates of our primitive space based on their centroids. For cases where all primitives have the same centroid, we simply force a split down the middle of the axis and part half the primitives in the left node and half in the right.</p>
+		
+		<p>Our bin size is now the space taken up by the primitives (max_coord - min_coord)/ num_bins.</p>
+		
+		<p>We place the primitives in the bins corresponding to their centroid position.</p>
+		
+		<p>Now, we implement the SAH heuristic. We compute the left-to-right prefix sum, which is the cumulative bounding box surface area from the leftmost bin to the right most. We compute the right-to-left prefix sum, which is the cumulative bounding box surface area from right to left. We also keep track of the counts of the primitives used to create the cumulative bounding boxes.</p>
+		
+		<p>Now, we implement the SAH heuristic to find the best split point. We define is at follows:<br>
+		<code>
+			   float sah_cost = traversal_cost +
+								  (left_area[i] / total_area) * left_count[i] +
+								  (right_area[i] / total_area) * right_count[i];
+		</code>
+		</p>
+		
+		<p>The travel cost is the cost of checking a ray against a BVH node. We initialize the travel cost to 1 because since it is a constant, it won’t affect the calculation for the best sah_cost significantly (think of this as traversal_cost + maxbin (  (left_area[bin] / total_area) * left_count[bin] + (right_area[bin] / total_area) * right_count[bin]))</p>
+		
+		<p>We find the bin that results in the lowest SAH cost. If no bin exists, we again force a split. 
+		Otherwise, we compute the best point to split at as:</p>
+		
+		<p><code>split_coord = min_coord + bin_size * (best_bin + 1);</code></p>
+		
+		<p>This is the pointer for the index of where in the primitive list to end for the right node, and the start for the left BVH node. From here, the implementation is the same as the naive BVH implementation.</p>
+		
+		<p>We noticed a 95% speedup in rendering time! Change in construction time was negligible.</p>
+		<p></p>
+
+		
 		<p><b>STACK IMPLEMENTATION BVH</b></p>
 		<p>Command used for testing: </p>
 		<p>./pathtracer -t 1 -s 64 -l 32 -m 6 -H -f CBbunny_H_64_32.png -r 480 360 ../dae/sky/CBbunny.dae </p>
