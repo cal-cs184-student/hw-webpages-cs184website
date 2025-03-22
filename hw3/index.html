@@ -510,19 +510,91 @@
 
 
 
-		<h2>(Optional) Part 6: Extra Credit Opportunities</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-		
-		<h2>Additional Notes (please remove)</h2>
-		<ul>
-			<li>You can also add code if you'd like as so: <code>code code code</code></li>
-			<li>If you'd like to add math equations, 
-				<ul>
-					<li>You can write inline equations like so: \( a^2 + b^2 = c^2 \)</li>
-					<li>You can write display equations like so: \[ a^2 + b^2 = c^2 \]</li>
-				</ul>
-			</li>
-		</ul>
+		<h2>Part 6: Extra Credit Opportunities</h2>
+		<b>Non-Axis-Aligned Bounding Boxes</b>
+		<p>We extended our existing BBox implementation to support non-axis-aligned bounding boxes, maintaining compatibility with traditional axis-aligned bounding boxes.</p>
+		<p>Initializing a non-axis-aligned bounding box is a multi-stage process. Given a set of points, we construct the bounding box using Principal Component Analysis (PCA).</p>
+		<p>Initially, the centroid of the bounding box is computed in world space. This is achieved by averaging all provided points.</p>
+		<p>Next, a covariance matrix is generated. This involves iterating through the points and computing the covariance between all variable pairs. The resulting sum is then divided by the total number of points, yielding the covariance matrix.</p>
+		<p>From the covariance matrix, eigenvalues were determined. Instead of library eigenvalue solvers, code generation tools created a solver using power iteration and deflation, resulting in an eigenvalue matrix. Using code generation, instead of a pre-existing library, avoided dependencies and maintained consistency with our custom Matrix3x3 and Vector3D implementation. We found code generation tools effective for producing functional code for common functions, replacing the need for libraries in some cases. However, because code generation tools are error prone, this can lead to hidden bugs.</p>
+		<p>The bounding box's half-extents are then computed. The points are transformed into the eigenspace defined by the eigenvalues. Within this space, the minimum and maximum x, y, and z coordinates are identified. The difference between the maximum and minimum for each dimension, divided by 0.6, defines the half-extents. The factor of 0.6 (rather than 0.5) slightly enlarges the box to mitigate potential floating-point errors.</p>
+		<p>The BBox stores the eigenvalue matrix as its orientation, along with its inverse for optimized intersection computations. The center and half-extents are also stored.</p>
+		<p>The intersect function was adapted for non-axis-aligned bounding boxes. The ray's origin and direction are first transformed into the eigenspace. Subsequently, the standard slab method, similar to the original intersection test, is applied.</p>
+		<p>A hybrid Bounding Volume Hierarchy (BVH) was implemented, incorporating both AABB and our custom bounding boxes. When expanding a bounding box, we include the eight corners of the AABB to guarantee the new box encompasses the primitive. The upper BVH levels utilize only AABBs, while the lower levels can employ non-axis-aligned boxes to enhance performance.</p>
+		<p>Rendering a CBBunny scene with the settings: -t 1 -s 128 -l 1 -m 5 -r 480 360 -f bunny.png ../dae/sky/CBbunny.dae, yielded the following results:</p>
+		<p>[PathTracer] Rendering... 100%!(93.1270s) versus [PathTracer] Rendering... 100%! (90.1638s).</p>
+		<p>This demonstrates an approximate 3.18% performance improvement in this scene.</p>
+
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				<tr>
+					<td>
+						<img src="part6_photos/bunny-non-aabb.png" width="400px"/>
+						<figcaption>Verification photo using non-AABB</figcaption>
+
+					</td>
+				</tr>
+			</table>
+		</div>
+		<p><b>STACK IMPLEMENTATION BVH</b></p>
+		<p>Command used for testing: </p>
+		<p>./pathtracer -t 1 -s 64 -l 32 -m 6 -H -f CBbunny_H_64_32.png -r 480 360 ../dae/sky/CBbunny.dae </p>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				<tr>
+					<td>
+						<img src="part6_photos/building_bvh.png" width="400px"/>
+					</td>
+				</tr>
+			</table>
+		</div>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				<tr>
+					<td>
+						<img src="part6_photos/rendering_bvh.png" width="400px"/>
+					</td>
+				</tr>
+			</table>
+		</div>
+		<p>Our stack implementation of construct_bvh works as follows: </p>
+
+		<p>We begin with defining a new structure to help with managing the stack. We need to keep track of the node's parents and left/right node structure, because it will get lost if we push the node to the stack naively. We define a structure, BVHStackNode, to do exactly this. It maintains a pointer to the parent node, and a boolean indicator whether it was the parent’s left or right node. </p>
+			
+		<p>Now we begin the stack implementation. We initialize a stack and push the root node onto it, initializing its parent as a null pointer. Notably, we keep the implementation of the heuristic for splitting a bounding box and creating a left and right node the same. Then, we push the new left and right nodes onto the stack and continue processing in a while loop, popping the stack node from the top of the stack. We end iteration when the stack is empty. Intuitly, it makes sense we see a speedup, but not significantly as the main mechanisms for constructing new left and right nodes are the same. </p>
+				
+		<p>The stack implementation of intersect is also similar. We push the root node onto the stack, and in a while loop, pop the top node of the stack. We keep most of the naive implementation of calculating intersection with the node the same, but instead of a recursive call to its left and right nodes, we push the left and right nodes onto the stack and continue processing. </p>
+				
+		<p>We only noticed a speed up when using 1 thread. When using 8 threads, the speed up is not noticeable, likely because the difference between a recursion call and a stack call is mitigated by threads finishing faster than other threads. </p>
+				
+		<p>Constructing BVH speedup: 13% speedup </p>
+		<p>Rendering BVH speedup: ~ -20% <p>
+				
+		<p> While constructing the BVH with a stack implementation is faster, rendering with a stack implementation (traversing the BVH tree) is noticeably slower. <p>
+		<p><b>Output images for verifying stack implementation:</b></p>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				<tr>
+					<td>
+						<img src="part6_photos/CBbunny_H_64_32_naive.png" width="400px"/>
+						<figcaption>Naive</figcaption>
+
+					</td>
+					<td>
+						<img src="part6_photos/CBbunny_H_64_32_stack.png" width="400px"/>
+						<figcaption>Stack</figcaption>
+
+					</td>
+				</tr>
+			</table>
+		</div>
+
+		<p><b>Memory efficient BVH by storing all the Primitive pointers in one large vector </b></p>
+		<p>To improve the memory efficiency in our Bounding Volume Hierarchy (BVH), we avoid creating new vectors of primitives at each node. Instead, our BVH construction is performed in-place on the original primitive vector. We recursively use the partition function to divide the vector into two sections representing the primitives belonging to the left and right child nodes. From this partitioning function, we can retrieve the iterators for the respective parts. The space complexity is O(n), where n is the number of primitives, as opposed to O(n log n) for our naive approach. All photos in the project were generated using this method.</p>
+
+
+
+
 		</div>
 	</body>
 </html>
